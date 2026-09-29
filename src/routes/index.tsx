@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, Code2, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Code2, Command, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -68,20 +68,73 @@ const resources: { title: string; type: Exclude<Filter, "All">; description: str
 const filterOptions: Filter[] = ["All", "Guides", "API reference", "SDKs", "Sample apps"];
 const typeIcons = { Guides: BookOpen, "API reference": Code2, SDKs: Terminal, "Sample apps": FileCode2 };
 
+const endpoints = [
+  { method: "GET", path: "/v1/projects", label: "List projects", description: "Return projects in your workspace.", response: { data: [{ id: "prj_01", name: "My next big thing", region: "us-east-1" }], has_more: false } },
+  { method: "POST", path: "/v1/projects", label: "Create project", description: "Create a project in your chosen region.", response: { id: "prj_02", name: "My next big thing", region: "us-east-1", status: "ready" } },
+  { method: "GET", path: "/v1/projects/{id}", label: "Retrieve project", description: "Get one project by its ID.", response: { id: "prj_01", name: "My next big thing", region: "us-east-1", status: "ready" } },
+  { method: "DELETE", path: "/v1/projects/{id}", label: "Archive project", description: "Archive a project you no longer need.", response: { id: "prj_01", archived: true } },
+] as const;
+
+const installCommands = {
+  JavaScript: "npm install @dockyard/sdk",
+  Python: "pip install dockyard",
+  cURL: "curl https://api.dockyard.dev/v1/projects -H 'Authorization: Bearer $DOCKYARD_API_KEY'",
+} satisfies Record<Language, string>;
+
+const docsGroups = [
+  { label: "01 / GET STARTED", links: [{ label: "Overview", anchor: "top" }, { label: "Quickstart", anchor: "quickstart" }, { label: "SDK installation", anchor: "sdks" }] },
+  { label: "02 / BUILD", links: [{ label: "Endpoint explorer", anchor: "api" }, { label: "Resource library", anchor: "library" }, { label: "Changelog", anchor: "changelog" }] },
+  { label: "03 / CONNECT", links: [{ label: "Community", anchor: "community" }] },
+];
+
 function Dockyard() {
   const [language, setLanguage] = useState<Language>("JavaScript");
   const [copied, setCopied] = useState(false);
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<(typeof resources)[number] | null>(null);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [online, setOnline] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteSearch, setPaletteSearch] = useState("");
+  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [activeSection, setActiveSection] = useState("top");
+  const [expandedGroup, setExpandedGroup] = useState(0);
+  const [activeEndpoint, setActiveEndpoint] = useState(0);
+  const [explorerTab, setExplorerTab] = useState<"response" | "request">("response");
+  const [projectId, setProjectId] = useState("prj_01");
+  const [projectName, setProjectName] = useState("My next big thing");
+  const [region, setRegion] = useState("us-east-1");
+  const [installLanguage, setInstallLanguage] = useState<Language>("JavaScript");
+  const [installCopied, setInstallCopied] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const paletteInputRef = useRef<HTMLInputElement>(null);
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const updateSection = () => {
+      const sections = ["top", "start", "quickstart", "api", "sdks", "library", "changelog", "community"];
+      const current = sections.reduce((result, id) => {
+        const element = document.getElementById(id);
+        return element && element.getBoundingClientRect().top <= 160 ? id : result;
+      }, "top");
+      setActiveSection(current);
+      const groupIndex = docsGroups.findIndex((group) => group.links.some((link) => link.anchor === current));
+      if (groupIndex >= 0) setExpandedGroup(groupIndex);
+    };
+    updateSection();
+    window.addEventListener("scroll", updateSection, { passive: true });
+    window.addEventListener("resize", updateSection);
+    return () => { window.removeEventListener("scroll", updateSection); window.removeEventListener("resize", updateSection); };
+  }, []);
+
+  useEffect(() => { if (paletteOpen) { setPaletteIndex(0); window.requestAnimationFrame(() => paletteInputRef.current?.focus()); } else { setPaletteSearch(""); } }, [paletteOpen]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("dockyard-theme");
-    setDark(stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches));
+    setDark(stored !== "light");
     const updateOnline = () => setOnline(window.navigator.onLine);
     updateOnline();
     window.addEventListener("online", updateOnline);
@@ -90,14 +143,15 @@ function Dockyard() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.classList.toggle("light", !dark);
     window.localStorage.setItem("dockyard-theme", dark ? "dark" : "light");
   }, [dark]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); }
+      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); setPaletteOpen(false); if (paletteOpen) paletteTriggerRef.current?.focus(); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPaletteOpen((value) => !value); }
       if (event.key === "/" && !event.metaKey && !event.ctrlKey && !["INPUT", "TEXTAREA"].includes(target.tagName) && !target.isContentEditable) {
         event.preventDefault();
         document.getElementById("library")?.scrollIntoView({ behavior: "smooth" });
@@ -106,7 +160,7 @@ function Dockyard() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [paletteOpen]);
 
   const filtered = resources.filter((item) => (filter === "All" || item.type === filter) && `${item.title} ${item.type} ${item.description}`.toLowerCase().includes(search.toLowerCase().trim()));
 
@@ -142,38 +196,62 @@ function Dockyard() {
     } catch { setCopied(false); }
   };
 
+  const navigateTo = (anchor: string) => {
+    setPaletteOpen(false);
+    setMenuOpen(false);
+    setActiveSection(anchor);
+    paletteTriggerRef.current?.focus();
+    document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const currentEndpoint = endpoints[activeEndpoint] ?? endpoints[0];
+  const requestPath = currentEndpoint.path.replace("{id}", encodeURIComponent(projectId || "prj_01"));
+  const requestPreview = currentEndpoint.method === "POST"
+    ? `curl -X POST https://api.dockyard.dev${requestPath} \\\n  -H 'Authorization: Bearer $DOCKYARD_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify({ name: projectName, region })}'`
+    : `curl -X ${currentEndpoint.method} https://api.dockyard.dev${requestPath} \\\n  -H 'Authorization: Bearer $DOCKYARD_API_KEY'`;
+  const responsePreview = JSON.stringify(activeEndpoint === 1
+    ? { ...currentEndpoint.response, name: projectName, region }
+    : currentEndpoint.response, null, 2);
+  const paletteItems = docsGroups.flatMap((group) => group.links).filter((item) => item.label.toLowerCase().includes(paletteSearch.toLowerCase()));
+
   return (
-    <div className="site-shell min-h-screen bg-background text-foreground">
+    <div className={`site-shell portal-shell min-h-screen bg-background text-foreground ${sidebarOpen ? "sidebar-expanded" : "sidebar-collapsed"}`}>
+      <aside className={`docs-sidebar ${menuOpen ? "mobile-open" : ""}`} aria-label="Documentation navigation">
+        <div className="sidebar-brand"><a href="#top" className="brand flex items-center gap-2.5" aria-label="Dockyard home" onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span className="sidebar-text">dockyard<span className="text-primary">.</span></span></a></div>
+         <nav className="docs-nav">{docsGroups.map((group, index) => <div className="docs-nav-group" key={group.label}><Button variant="ghost" className="docs-nav-label sidebar-text" aria-expanded={expandedGroup === index} aria-controls={`docs-group-${index}`} onClick={() => setExpandedGroup(expandedGroup === index ? -1 : index)}>{group.label}<ChevronDown size={14} className={expandedGroup === index ? "group-chevron is-open" : "group-chevron"} /></Button><div id={`docs-group-${index}`} hidden={expandedGroup !== index}>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} aria-current={activeSection === link.anchor || (link.anchor === "quickstart" && activeSection === "start") ? "location" : undefined} onClick={() => { setMenuOpen(false); setActiveSection(link.anchor); }}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div></div>)}</nav>
+        <div className="sidebar-bottom"><span className="sidebar-text">DOCKYARD / DOCS<br />v2.4 — STABLE</span><span className="status-dot is-online" /></div>
+      </aside>
+      {menuOpen && <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} />}
+      <div className="portal-main">
       <div className="utility-bar">
         <div className="page-container flex h-full items-center justify-between gap-4">
-          <span className="font-mono text-[11px] uppercase tracking-widest">The developer home base <span className="mx-2 opacity-50">/</span> v2.4</span>
+          <span className="font-mono text-[11px] uppercase tracking-widest">ROOT / <span className="text-primary">DOCKYARD</span> / {activeSection.toUpperCase()}</span>
           <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider"><span className={`status-dot ${online ? "is-online" : "is-offline"}`} aria-hidden="true" />{online ? "Connection online" : "You're offline"}<span className="ml-2 opacity-50">↗</span></span>
         </div>
       </div>
 
       <header className="site-header">
         <div className="page-container flex h-[76px] items-center justify-between gap-4">
-          <a href="#top" className="brand flex shrink-0 items-center gap-2.5" aria-label="Dockyard home"><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span>dockyard<span className="text-primary">.</span></span></a>
+            <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="header-icon hidden lg:inline-flex shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? "Collapse documentation navigation" : "Expand documentation navigation"} title={sidebarOpen ? "Collapse navigation" : "Expand navigation"}>{sidebarOpen ? <ChevronsLeft /> : <ChevronsRight />}</Button><span className="header-location truncate">DOCS <span>/</span> {activeSection.toUpperCase()}</span></div>
           <nav className="hidden items-center gap-9 md:flex" aria-label="Main navigation">
-            <a href="#start">Get started</a><a href="#library">Library</a><a href="#changelog">Changelog</a><a href="#community">Community</a>
+             <a href="#quickstart">Quickstart</a><a href="#api">API</a><a href="#sdks">SDKs</a><a href="#library">Library</a>
           </nav>
           <div className="flex items-center gap-2">
+             <Button ref={paletteTriggerRef} variant="outline" className="command-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Search pages and sections"><Search size={15} /><span>Jump to...</span><kbd>⌘ K</kbd></Button>
             <Button variant="ghost" size="icon" className="header-icon" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"}>{dark ? <Sun /> : <Moon />}</Button>
-            <Button variant="ghost" size="icon" className="header-icon md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
-            <Button asChild className="nav-cta hidden sm:inline-flex"><a href="#start">Start building <ArrowUpRight /></a></Button>
+             <Button variant="ghost" size="icon" className="header-icon mobile-menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
           </div>
         </div>
-        {menuOpen && <nav className="mobile-nav page-container md:hidden" aria-label="Mobile navigation"><a href="#start" onClick={() => setMenuOpen(false)}>Get started</a><a href="#library" onClick={() => setMenuOpen(false)}>Library</a><a href="#changelog" onClick={() => setMenuOpen(false)}>Changelog</a><a href="#community" onClick={() => setMenuOpen(false)}>Community</a></nav>}
       </header>
 
       <main id="top">
         <section className="hero-grid border-b border-border">
           <div className="page-container hero-inner">
             <div className="hero-copy">
-              <div className="eyebrow"><span className="eyebrow-line" /> DOCS, TOOLS & GOOD IDEAS</div>
-              <h1>Make something <span className="highlight-word">great<span className="highlight-swoosh" aria-hidden="true" /></span><br />from here<span className="text-primary">.</span></h1>
-              <p>Everything you need to go from first line to fully shipped. One place to find your way, find your answers, and keep moving.</p>
-              <div className="hero-actions"><Button asChild className="primary-action"><a href="#start">Find your starting point <ArrowRight /></a></Button><a href="#library" className="text-link">Explore the library <ArrowDown size={16} /></a></div>
+               <div className="eyebrow"><span className="eyebrow-line" /> THE DEVELOPER HOME BASE / V2.4</div>
+               <h1>Dockyard <span className="highlight-word">Hub<span className="highlight-swoosh" aria-hidden="true" /></span><span className="text-primary">.</span></h1>
+               <p>From first request to the finer details. Your guides, API reference, SDKs, and working examples in one place.</p>
+               <div className="hero-actions"><Button asChild className="primary-action"><a href="#quickstart">Start building <ArrowRight /></a></Button><a href="#api" className="text-link">Explore the API <ArrowDown size={16} /></a></div>
               <div className="hero-coordinate font-mono">// YOUR NEXT BUILD STARTS HERE <span>001 — 004</span></div>
             </div>
             <div className="hero-code-wrap">
@@ -202,13 +280,20 @@ function Dockyard() {
 
         <section id="quickstart" className="quickstart-section scroll-mt-20"><div className="page-container quickstart-inner"><div className="quickstart-label"><span className="section-kicker">THE SHORT VERSION</span><h2>Up and running<br />in three steps<span className="text-primary">.</span></h2></div><div className="quickstart-steps"><div><span>01</span><p>Create your API key</p></div><div><span>02</span><p>Choose your language above</p></div><div><span>03</span><p>Copy the sample and run it</p></div></div><a href="#top" className="quickstart-back">Back to code <ArrowUpRight size={17} /></a></div></section>
 
-        <section id="library" className="library-section section-space scroll-mt-20"><div className="page-container"><div className="section-heading library-heading"><div><div className="section-kicker">02 / THE LIBRARY</div><h2>Answers live here<span className="text-primary">.</span></h2></div><p>Guides, references, and working examples. Find exactly what you came for.</p></div><div className="library-controls"><div className="search-field"><Search size={19} aria-hidden="true" /><input ref={searchRef} type="search" placeholder="Search the library..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search the library" /><kbd>/</kbd></div><div className="filter-tabs" role="group" aria-label="Filter resources">{filterOptions.map((item) => <Button key={item} variant="ghost" aria-pressed={filter === item} className={`filter-tab ${filter === item ? "selected" : ""}`} onClick={() => setFilter(item)}>{item}</Button>)}</div></div><div className="results-line font-mono"><span>{String(filtered.length).padStart(2, "0")} RESOURCES {filter !== "All" && ` / ${filter.toUpperCase()}`}</span><span>EXPLORE ↓</span></div><div className="resource-grid">{filtered.map((item) => { const Icon = typeIcons[item.type]; return <Button variant="ghost" className="resource-card" key={item.title} onClick={() => setSelected(item)}><span className="resource-card-top"><span className="resource-type"><Icon size={15} /> {item.type}</span><ArrowUpRight size={18} /></span><span className="resource-card-body"><strong>{item.title}</strong><span>{item.description}</span></span><span className="resource-card-bottom">{item.time}<ChevronRight size={16} /></span></Button>; })}</div>{filtered.length === 0 && <div className="empty-state"><Search size={25} /><h3>No matches in the yard.</h3><p>Try a different term or browse all resources.</p><Button variant="outline" onClick={() => { setSearch(""); setFilter("All"); }}>Clear search</Button></div>}</div></section>
+        <section id="api" className="api-section section-space scroll-mt-20"><div className="page-container"><div className="section-heading"><div><div className="section-kicker">02 / API REFERENCE</div><h2>Endpoint explorer<span className="text-primary">.</span></h2></div><p>Inspect the projects API and shape a sample request before copying it into your workflow.</p></div><div className="explorer-layout"><div className="endpoint-list" role="tablist" aria-label="Project endpoints">{endpoints.map((endpoint, index) => <Button key={`${endpoint.method}-${endpoint.path}`} variant="ghost" role="tab" aria-selected={activeEndpoint === index} className={`endpoint-option ${activeEndpoint === index ? "is-active" : ""}`} onClick={() => { setActiveEndpoint(index); setExplorerTab("response"); }}><span className="endpoint-option-top"><span className={`method-label method-${endpoint.method.toLowerCase()}`}>{endpoint.method}</span><span>{endpoint.path}</span></span><strong>{endpoint.label}</strong><span>{endpoint.description}</span></Button>)}</div><div className="endpoint-detail" role="tabpanel"><div className="endpoint-detail-head"><div><span className="section-kicker">PROJECTS / V1</span><h3>{currentEndpoint.label}</h3><p>{currentEndpoint.description}</p></div><span className={`method-label method-${currentEndpoint.method.toLowerCase()}`}>{currentEndpoint.method}</span></div><div className="endpoint-path"><span>https://api.dockyard.dev{requestPath}</span><Button variant="ghost" size="icon" aria-label="Copy endpoint URL" title="Copy endpoint URL" onClick={() => navigator.clipboard?.writeText(`https://api.dockyard.dev${requestPath}`)}><Copy size={15} /></Button></div>{currentEndpoint.path.includes("{id}") && <label className="explorer-field">Project ID<input value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="prj_01" /></label>}{currentEndpoint.method === "POST" && <div className="explorer-fields"><label className="explorer-field">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label><label className="explorer-field">Region<select value={region} onChange={(event) => setRegion(event.target.value)}><option value="us-east-1">us-east-1</option><option value="eu-west-1">eu-west-1</option><option value="ap-southeast-1">ap-southeast-1</option></select></label></div>}<div className="explorer-tabs" role="tablist" aria-label="Endpoint example"><Button variant="ghost" role="tab" aria-selected={explorerTab === "response"} className={explorerTab === "response" ? "is-active" : ""} onClick={() => setExplorerTab("response")}>Example response</Button><Button variant="ghost" role="tab" aria-selected={explorerTab === "request"} className={explorerTab === "request" ? "is-active" : ""} onClick={() => setExplorerTab("request")}>cURL request</Button><Button variant="ghost" size="icon" className="explorer-copy" aria-label="Copy example" title="Copy example" onClick={() => navigator.clipboard?.writeText(explorerTab === "response" ? responsePreview : requestPreview)}><Copy size={15} /></Button></div><pre className="explorer-code"><code>{explorerTab === "response" ? responsePreview : requestPreview}</code></pre><p className="explorer-note">Examples only — no request is sent.</p></div></div></div></section>
+
+        <section id="sdks" className="sdk-section section-space scroll-mt-20"><div className="page-container sdk-layout"><div><div className="section-kicker">03 / YOUR TOOLCHAIN</div><h2>Install and go<span className="text-primary">.</span></h2><p>Choose the language that fits your stack, then copy the install command.</p></div><div className="sdk-console"><div className="sdk-tabs" role="tablist" aria-label="SDK language">{(["JavaScript", "Python", "cURL"] as Language[]).map((item) => <Button key={item} variant="ghost" role="tab" aria-selected={installLanguage === item} className={installLanguage === item ? "is-active" : ""} onClick={() => { setInstallLanguage(item); setInstallCopied(false); }}>{item}</Button>)}</div><div className="sdk-command" role="tabpanel"><span className="terminal-cursor">$</span><code>{installCommands[installLanguage]}</code><Button variant="ghost" size="icon" onClick={async () => { try { await navigator.clipboard.writeText(installCommands[installLanguage]); setInstallCopied(true); window.setTimeout(() => setInstallCopied(false), 2000); } catch { setInstallCopied(false); } }} aria-label={installCopied ? "Copied install command" : "Copy install command"} title="Copy install command">{installCopied ? <Check size={17} /> : <Copy size={17} />}</Button></div><div className="sdk-console-foot">{installLanguage === "cURL" ? "REST API / NO INSTALL REQUIRED" : `${installLanguage.toUpperCase()} SDK / V2.4`}</div></div></div></section>
+
+        <section id="library" className="library-section section-space scroll-mt-20"><div className="page-container"><div className="section-heading library-heading"><div><div className="section-kicker">04 / THE LIBRARY</div><h2>Answers live here<span className="text-primary">.</span></h2></div><p>Guides, references, and working examples. Find exactly what you came for.</p></div><div className="library-controls"><div className="search-field"><Search size={19} aria-hidden="true" /><input ref={searchRef} type="search" placeholder="Search the library..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search the library" /><kbd>/</kbd></div><div className="filter-tabs" role="group" aria-label="Filter resources">{filterOptions.map((item) => <Button key={item} variant="ghost" aria-pressed={filter === item} className={`filter-tab ${filter === item ? "selected" : ""}`} onClick={() => setFilter(item)}>{item}</Button>)}</div></div><div className="results-line font-mono"><span>{String(filtered.length).padStart(2, "0")} RESOURCES {filter !== "All" && ` / ${filter.toUpperCase()}`}</span><span>EXPLORE ↓</span></div><div className="resource-grid">{filtered.map((item) => { const Icon = typeIcons[item.type]; return <Button variant="ghost" className="resource-card" key={item.title} onClick={() => setSelected(item)}><span className="resource-card-top"><span className="resource-type"><Icon size={15} /> {item.type}</span><ArrowUpRight size={18} /></span><span className="resource-card-body"><strong>{item.title}</strong><span>{item.description}</span></span><span className="resource-card-bottom">{item.time}<ChevronRight size={16} /></span></Button>; })}</div>{filtered.length === 0 && <div className="empty-state"><Search size={25} /><h3>No matches in the yard.</h3><p>Try a different term or browse all resources.</p><Button variant="outline" onClick={() => { setSearch(""); setFilter("All"); }}>Clear search</Button></div>}</div></section>
 
         <section id="changelog" className="changelog-section section-space scroll-mt-20"><div className="page-container changelog-layout"><div className="changelog-intro"><div className="section-kicker">03 / ALWAYS BUILDING</div><h2>Fresh off<br />the dock<span className="accent-period">.</span></h2><p>What’s new, what’s improved, and what you should know about.</p><div className="changelog-mark font-mono">// CHANGE IS A GOOD THING</div></div><div className="timeline"><div className="timeline-item"><div className="timeline-date">SEP 24, 2026</div><div className="timeline-content"><span className="badge-new">NEW</span><h3>Faster project creation</h3><p>New projects are ready to use in seconds, with a simpler setup flow and clearer defaults.</p></div><ArrowUpRight size={20} /></div><div className="timeline-item"><div className="timeline-date">SEP 10, 2026</div><div className="timeline-content"><span className="badge-new">NEW</span><h3>Python SDK 2.4 is here</h3><p>Better type hints, improved retries, and a more consistent developer experience.</p></div><ArrowUpRight size={20} /></div><div className="timeline-item"><div className="timeline-date">AUG 28, 2026</div><div className="timeline-content"><span className="badge-breaking">BREAKING</span><h3>Legacy auth headers retired</h3><p>Use Bearer tokens for all requests. Existing integrations should update their headers.</p></div><ArrowUpRight size={20} /></div></div></div></section>
 
         <section id="community" className="community-section scroll-mt-20"><div className="page-container community-inner"><div className="community-art" aria-hidden="true"><div className="art-ring ring-one" /><div className="art-ring ring-two" /><span>?</span><div className="art-cross">+</div></div><div className="community-copy"><div className="section-kicker">04 / YOU'RE NOT ON YOUR OWN</div><h2>Stuck? Ask a human<span className="text-primary">.</span></h2><p>Real questions deserve real answers. Reach out when you need a second set of eyes.</p><a className="community-link" href="mailto:help@dockyard.dev?subject=Dockyard%20developer%20help">Get in touch <ArrowUpRight size={19} /></a></div><div className="support-stats"><div><strong>1:1</strong><span>HUMAN HELP</span></div><div><strong>24/7</strong><span>SELF-SERVE DOCS</span></div><div><strong>4</strong><span>WAYS TO START</span></div></div></div></section>
       </main>
       <footer className="site-footer"><div className="page-container footer-inner"><a href="#top" className="brand flex items-center gap-2" aria-label="Dockyard home"><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span>dockyard<span className="text-primary">.</span></span></a><span className="font-mono text-xs">BUILT FOR THE BUILDERS. © 2026 DOCKYARD.</span><div className="footer-links"><a href="#library">Library</a><a href="#changelog">Updates</a><a href="mailto:help@dockyard.dev">Support</a></div></div></footer>
+      </div>
+
+      {paletteOpen && <div className="palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaletteOpen(false); }}><div className="palette-dialog" role="dialog" aria-modal="true" aria-label="Jump to section"><div className="palette-input"><Command size={18} /><input ref={paletteInputRef} value={paletteSearch} onChange={(event) => { setPaletteSearch(event.target.value); setPaletteIndex(0); }} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); setPaletteIndex((index) => Math.min(index + 1, paletteItems.length - 1)); } else if (event.key === "ArrowUp") { event.preventDefault(); setPaletteIndex((index) => Math.max(index - 1, 0)); } else if (event.key === "Enter" && paletteItems[paletteIndex]) { event.preventDefault(); navigateTo(paletteItems[paletteIndex].anchor); } }} placeholder="Search sections..." aria-label="Search sections" aria-controls="palette-results" aria-activedescendant={paletteItems[paletteIndex] ? `palette-${paletteItems[paletteIndex].anchor}` : undefined} /><kbd>ESC</kbd></div><div className="palette-results" id="palette-results">{paletteItems.length ? paletteItems.map((item, index) => <Button key={item.anchor} id={`palette-${item.anchor}`} variant="ghost" className={index === paletteIndex ? "is-active" : ""} onMouseEnter={() => setPaletteIndex(index)} onClick={() => navigateTo(item.anchor)}><span>{item.label}</span><ArrowUpRight size={16} /></Button>) : <p>No sections found.</p>}</div></div></div>}
 
       {selected && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}><div className="resource-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div className="dialog-top"><span className="resource-type">{selected.type}</span><Button variant="ghost" size="icon" onClick={() => setSelected(null)} aria-label="Close resource"><X size={20} /></Button></div><h2 id="dialog-title">{selected.title}</h2><p>{selected.description}</p><ol>{selected.details.map((detail) => <li key={detail}>{detail}</li>)}</ol><Button className="primary-action" onClick={() => setSelected(null)}>Back to library <ArrowRight /></Button></div></div>}
     </div>

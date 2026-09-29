@@ -11,3 +11,4 @@
 
 - Keep Dockyard as one scrolling route with section anchors because the requested experience is explicitly single-page.
 - Keep the resource library as local editorial data with client-side search/filter/detail state because no persistent backend or external documentation source was requested.
+- Keep documentation navigation, command search, SDK tabs, and API examples in the single-page client state because they are illustrative portal interactions without a live API connection.
