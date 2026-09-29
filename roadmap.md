@@ -7,3 +7,5 @@
 - [ ] Refine the night-schematic look and add collapsible documentation navigation.
 - [ ] Add command palette, endpoint explorer, and SDK install tabs.
 - [ ] Verify redesigned desktop/mobile layout and interactions.
+- [ ] Keep the mobile docs sidebar collapsible, track the current section, and keep its navigation group expanded.
+- [ ] Add command-palette keyboard navigation and clear keyboard focus for portal navigation.
