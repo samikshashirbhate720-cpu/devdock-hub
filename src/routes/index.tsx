@@ -93,7 +93,7 @@ function Dockyard() {
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<(typeof resources)[number] | null>(null);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [online, setOnline] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -110,7 +110,7 @@ function Dockyard() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem("dockyard-theme");
-    setDark(stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches));
+    setDark(stored !== "light");
     const updateOnline = () => setOnline(window.navigator.onLine);
     updateOnline();
     window.addEventListener("online", updateOnline);
@@ -119,7 +119,7 @@ function Dockyard() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.classList.toggle("light", !dark);
     window.localStorage.setItem("dockyard-theme", dark ? "dark" : "light");
   }, [dark]);
 
