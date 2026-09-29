@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep Dockyard as one scrolling route with section anchors because the requested experience is explicitly single-page.
+- Keep the resource library as local editorial data with client-side search/filter/detail state because no persistent backend or external documentation source was requested.
