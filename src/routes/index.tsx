@@ -239,7 +239,7 @@ function Dockyard() {
           <div className="flex items-center gap-2">
              <Button ref={paletteTriggerRef} variant="outline" className="command-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Search pages and sections"><Search size={15} /><span>Jump to...</span><kbd>⌘ K</kbd></Button>
             <Button variant="ghost" size="icon" className="header-icon" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"}>{dark ? <Sun /> : <Moon />}</Button>
-            <Button variant="ghost" size="icon" className="header-icon md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
+             <Button variant="ghost" size="icon" className="header-icon mobile-menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
           </div>
         </div>
       </header>

@@ -392,6 +392,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
 .command-trigger { height: 31px; padding: 0 9px; gap: 9px; color: var(--muted-foreground); background: var(--card); font: 11px var(--font-mono); border-color: var(--border); border-radius: 3px; }
 .command-trigger:hover { background: var(--secondary); color: var(--foreground); }
 .command-trigger kbd { margin-left: 8px; color: var(--muted-foreground); }
+.mobile-menu-toggle { display: none; }
 .portal-main .hero-grid { background-color: var(--paper-alt); background-image: linear-gradient(to right, color-mix(in oklab, var(--primary) 8%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--primary) 8%, transparent) 1px, transparent 1px); background-size: 24px 24px; position: relative; }
 .portal-main .hero-grid::after { content: ''; position: absolute; top: 18px; right: 28px; width: 68px; height: 68px; border-top: 1px solid var(--primary); border-right: 1px solid var(--primary); pointer-events: none; opacity: .35; animation: schematic-trace 6s ease-in-out infinite; }
 @keyframes schematic-trace { 50% { opacity: .7; transform: translate(-6px, 6px); } }
@@ -496,7 +497,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
   .sidebar-collapsed .sidebar-text { display: initial; }
   .docs-sidebar.mobile-open { transform: translateX(0); }
   .sidebar-scrim { display: block; position: fixed; inset: 0; z-index: 25; background: color-mix(in oklab, var(--ink) 75%, transparent); }
-  .site-header .header-icon.md\:hidden { display: inline-flex; }
+  .site-header .mobile-menu-toggle { display: inline-flex; }
   .site-header .header-icon.lg\:inline-flex { display: none; }
 }
 @media (max-width: 760px) {
