@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, Code2, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, ChevronsLeft, ChevronsRight, Code2, Command, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -68,6 +68,25 @@ const resources: { title: string; type: Exclude<Filter, "All">; description: str
 const filterOptions: Filter[] = ["All", "Guides", "API reference", "SDKs", "Sample apps"];
 const typeIcons = { Guides: BookOpen, "API reference": Code2, SDKs: Terminal, "Sample apps": FileCode2 };
 
+const endpoints = [
+  { method: "GET", path: "/v1/projects", label: "List projects", description: "Return projects in your workspace.", response: { data: [{ id: "prj_01", name: "My next big thing", region: "us-east-1" }], has_more: false } },
+  { method: "POST", path: "/v1/projects", label: "Create project", description: "Create a project in your chosen region.", response: { id: "prj_02", name: "My next big thing", region: "us-east-1", status: "ready" } },
+  { method: "GET", path: "/v1/projects/{id}", label: "Retrieve project", description: "Get one project by its ID.", response: { id: "prj_01", name: "My next big thing", region: "us-east-1", status: "ready" } },
+  { method: "DELETE", path: "/v1/projects/{id}", label: "Archive project", description: "Archive a project you no longer need.", response: { id: "prj_01", archived: true } },
+];
+
+const installCommands = {
+  JavaScript: "npm install @dockyard/sdk",
+  Python: "pip install dockyard",
+  cURL: "curl https://api.dockyard.dev/v1/projects -H 'Authorization: Bearer $DOCKYARD_API_KEY'",
+} satisfies Record<Language, string>;
+
+const docsGroups = [
+  { label: "01 / GET STARTED", links: [{ label: "Overview", anchor: "top" }, { label: "Quickstart", anchor: "quickstart" }, { label: "SDK installation", anchor: "sdks" }] },
+  { label: "02 / BUILD", links: [{ label: "Endpoint explorer", anchor: "api" }, { label: "Resource library", anchor: "library" }, { label: "Changelog", anchor: "changelog" }] },
+  { label: "03 / CONNECT", links: [{ label: "Community", anchor: "community" }] },
+];
+
 function Dockyard() {
   const [language, setLanguage] = useState<Language>("JavaScript");
   const [copied, setCopied] = useState(false);
@@ -77,6 +96,16 @@ function Dockyard() {
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [online, setOnline] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteSearch, setPaletteSearch] = useState("");
+  const [activeEndpoint, setActiveEndpoint] = useState(0);
+  const [explorerTab, setExplorerTab] = useState<"response" | "request">("response");
+  const [projectId, setProjectId] = useState("prj_01");
+  const [projectName, setProjectName] = useState("My next big thing");
+  const [region, setRegion] = useState("us-east-1");
+  const [installLanguage, setInstallLanguage] = useState<Language>("JavaScript");
+  const [installCopied, setInstallCopied] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -97,7 +126,8 @@ function Dockyard() {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); }
+      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); setPaletteOpen(false); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPaletteOpen((value) => !value); }
       if (event.key === "/" && !event.metaKey && !event.ctrlKey && !["INPUT", "TEXTAREA"].includes(target.tagName) && !target.isContentEditable) {
         event.preventDefault();
         document.getElementById("library")?.scrollIntoView({ behavior: "smooth" });
@@ -142,38 +172,60 @@ function Dockyard() {
     } catch { setCopied(false); }
   };
 
+  const navigateTo = (anchor: string) => {
+    setPaletteOpen(false);
+    setMenuOpen(false);
+    document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const currentEndpoint = endpoints[activeEndpoint];
+  const requestPath = currentEndpoint.path.replace("{id}", encodeURIComponent(projectId || "prj_01"));
+  const requestPreview = currentEndpoint.method === "POST"
+    ? `curl -X POST https://api.dockyard.dev${requestPath} \\\n+  -H 'Authorization: Bearer $DOCKYARD_API_KEY' \\\n+  -H 'Content-Type: application/json' \\\n+  -d '${JSON.stringify({ name: projectName, region })}'`
+    : `curl -X ${currentEndpoint.method} https://api.dockyard.dev${requestPath} \\\n+  -H 'Authorization: Bearer $DOCKYARD_API_KEY'`;
+  const responsePreview = JSON.stringify(activeEndpoint === 1
+    ? { ...currentEndpoint.response, name: projectName, region }
+    : currentEndpoint.response, null, 2);
+  const paletteItems = docsGroups.flatMap((group) => group.links).filter((item) => item.label.toLowerCase().includes(paletteSearch.toLowerCase()));
+
   return (
-    <div className="site-shell min-h-screen bg-background text-foreground">
+    <div className={`site-shell portal-shell min-h-screen bg-background text-foreground ${sidebarOpen ? "sidebar-expanded" : "sidebar-collapsed"}`}>
+      <aside className={`docs-sidebar ${menuOpen ? "mobile-open" : ""}`} aria-label="Documentation navigation">
+        <div className="sidebar-brand"><a href="#top" className="brand flex items-center gap-2.5" aria-label="Dockyard home" onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span className="sidebar-text">dockyard<span className="text-primary">.</span></span></a></div>
+        <nav className="docs-nav">{docsGroups.map((group) => <div className="docs-nav-group" key={group.label}><div className="docs-nav-label sidebar-text">{group.label}</div>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} onClick={() => setMenuOpen(false)}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div>)}</nav>
+        <div className="sidebar-bottom"><span className="sidebar-text">DOCKYARD / DOCS<br />v2.4 — STABLE</span><span className="status-dot is-online" /></div>
+      </aside>
+      {menuOpen && <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} />}
+      <div className="portal-main">
       <div className="utility-bar">
         <div className="page-container flex h-full items-center justify-between gap-4">
-          <span className="font-mono text-[11px] uppercase tracking-widest">The developer home base <span className="mx-2 opacity-50">/</span> v2.4</span>
+          <span className="font-mono text-[11px] uppercase tracking-widest">ROOT / <span className="text-primary">DOCKYARD</span> / OVERVIEW</span>
           <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider"><span className={`status-dot ${online ? "is-online" : "is-offline"}`} aria-hidden="true" />{online ? "Connection online" : "You're offline"}<span className="ml-2 opacity-50">↗</span></span>
         </div>
       </div>
 
       <header className="site-header">
         <div className="page-container flex h-[76px] items-center justify-between gap-4">
-          <a href="#top" className="brand flex shrink-0 items-center gap-2.5" aria-label="Dockyard home"><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span>dockyard<span className="text-primary">.</span></span></a>
+           <div className="flex items-center gap-3"><Button variant="ghost" size="icon" className="header-icon hidden lg:inline-flex" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? "Collapse documentation navigation" : "Expand documentation navigation"} title={sidebarOpen ? "Collapse navigation" : "Expand navigation"}>{sidebarOpen ? <ChevronsLeft /> : <ChevronsRight />}</Button><span className="header-location">DOCS <span>/</span> OVERVIEW</span></div>
           <nav className="hidden items-center gap-9 md:flex" aria-label="Main navigation">
-            <a href="#start">Get started</a><a href="#library">Library</a><a href="#changelog">Changelog</a><a href="#community">Community</a>
+             <a href="#quickstart">Quickstart</a><a href="#api">API</a><a href="#sdks">SDKs</a><a href="#library">Library</a>
           </nav>
           <div className="flex items-center gap-2">
+             <Button variant="outline" className="command-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Search pages and sections"><Search size={15} /><span>Jump to...</span><kbd>⌘ K</kbd></Button>
             <Button variant="ghost" size="icon" className="header-icon" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"}>{dark ? <Sun /> : <Moon />}</Button>
             <Button variant="ghost" size="icon" className="header-icon md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
-            <Button asChild className="nav-cta hidden sm:inline-flex"><a href="#start">Start building <ArrowUpRight /></a></Button>
           </div>
         </div>
-        {menuOpen && <nav className="mobile-nav page-container md:hidden" aria-label="Mobile navigation"><a href="#start" onClick={() => setMenuOpen(false)}>Get started</a><a href="#library" onClick={() => setMenuOpen(false)}>Library</a><a href="#changelog" onClick={() => setMenuOpen(false)}>Changelog</a><a href="#community" onClick={() => setMenuOpen(false)}>Community</a></nav>}
       </header>
 
       <main id="top">
         <section className="hero-grid border-b border-border">
           <div className="page-container hero-inner">
             <div className="hero-copy">
-              <div className="eyebrow"><span className="eyebrow-line" /> DOCS, TOOLS & GOOD IDEAS</div>
-              <h1>Make something <span className="highlight-word">great<span className="highlight-swoosh" aria-hidden="true" /></span><br />from here<span className="text-primary">.</span></h1>
-              <p>Everything you need to go from first line to fully shipped. One place to find your way, find your answers, and keep moving.</p>
-              <div className="hero-actions"><Button asChild className="primary-action"><a href="#start">Find your starting point <ArrowRight /></a></Button><a href="#library" className="text-link">Explore the library <ArrowDown size={16} /></a></div>
+               <div className="eyebrow"><span className="eyebrow-line" /> THE DEVELOPER HOME BASE / V2.4</div>
+               <h1>Dockyard <span className="highlight-word">Hub<span className="highlight-swoosh" aria-hidden="true" /></span><span className="text-primary">.</span></h1>
+               <p>From first request to the finer details. Your guides, API reference, SDKs, and working examples in one place.</p>
+               <div className="hero-actions"><Button asChild className="primary-action"><a href="#quickstart">Start building <ArrowRight /></a></Button><a href="#api" className="text-link">Explore the API <ArrowDown size={16} /></a></div>
               <div className="hero-coordinate font-mono">// YOUR NEXT BUILD STARTS HERE <span>001 — 004</span></div>
             </div>
             <div className="hero-code-wrap">
