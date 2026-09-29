@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, Code2, Command, Copy, FileCode2, Github, LifeBuoy, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, Code2, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -119,7 +119,19 @@ function Dockyard() {
 
   const copyCode = async () => {
     try {
-      await navigator.clipboard.writeText(codeSamples[language]);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(codeSamples[language]);
+      } else {
+        const temporary = document.createElement("textarea");
+        temporary.value = codeSamples[language];
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+        const successful = document.execCommand("copy");
+        temporary.remove();
+        if (!successful) throw new Error("Copy unavailable");
+      }
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch { setCopied(false); }
