@@ -95,6 +95,8 @@
   --highlight: oklch(0.88 0.18 99);
   --ink: oklch(0.19 0.027 261);
   --paper-alt: oklch(0.957 0.015 92);
+  --blueprint-blue: #2256D8;
+  --schematic-line: #b9c5d1;
 }
 
 @layer base {
@@ -365,6 +367,13 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
 .docs-nav { flex: 1; padding: 30px 14px; overflow-y: auto; }
 .docs-nav-group + .docs-nav-group { margin-top: 33px; }
 .docs-nav-label { color: var(--code-muted); font: 700 10px var(--font-mono); padding: 0 12px 12px; white-space: nowrap; }
+.docs-nav button.docs-nav-label { display: flex; justify-content: space-between; align-items: center; width: 100%; height: 35px; border-radius: 2px; text-align: left; }
+.docs-nav button.docs-nav-label:hover { color: var(--foreground); background: var(--secondary); }
+.group-chevron { flex-shrink: 0; transform: rotate(-90deg); transition: transform .2s; }
+.group-chevron.is-open { transform: rotate(0); }
+.docs-nav-group [hidden] { display: none; }
+.docs-nav-group a[aria-current="location"] { color: var(--primary); background: var(--secondary); border-color: var(--primary); }
+.docs-nav-group a:focus-visible, .docs-nav button:focus-visible, .site-header a:focus-visible, .site-header button:focus-visible, .palette-results button:focus-visible { outline: 2px solid var(--highlight); outline-offset: -2px; }
 .docs-nav-group a { display: flex; align-items: center; gap: 12px; height: 37px; padding: 0 11px; border-left: 2px solid transparent; font-size: 13px; color: var(--code-muted); white-space: nowrap; transition: color .2s, background .2s, border-color .2s; }
 .docs-nav-group a:hover, .docs-nav-group a:focus-visible { color: var(--code-foreground); background: var(--secondary); border-color: var(--primary); }
 .docs-nav-group:first-child a:first-of-type { color: var(--primary); background: var(--secondary); border-color: var(--primary); }
@@ -461,6 +470,7 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
 .palette-results { max-height: 330px; overflow-y: auto; padding: 8px; }
 .palette-results button { width: 100%; justify-content: space-between; color: var(--foreground); }
 .palette-results button:hover { background: var(--secondary); }
+.palette-results button.is-active { background: var(--secondary); color: var(--primary); }
 .palette-results p { padding: 15px; color: var(--muted-foreground); }
 .light .docs-sidebar { background: var(--code); }
 .light .portal-main { background: var(--background); }
