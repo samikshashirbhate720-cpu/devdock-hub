@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronRight, ChevronsLeft, ChevronsRight, Code2, Command, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Code2, Command, Copy, FileCode2, Menu, Moon, Search, Sun, Terminal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -99,6 +99,9 @@ function Dockyard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSearch, setPaletteSearch] = useState("");
+  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [activeSection, setActiveSection] = useState("top");
+  const [expandedGroup, setExpandedGroup] = useState(0);
   const [activeEndpoint, setActiveEndpoint] = useState(0);
   const [explorerTab, setExplorerTab] = useState<"response" | "request">("response");
   const [projectId, setProjectId] = useState("prj_01");
@@ -107,6 +110,27 @@ function Dockyard() {
   const [installLanguage, setInstallLanguage] = useState<Language>("JavaScript");
   const [installCopied, setInstallCopied] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const paletteInputRef = useRef<HTMLInputElement>(null);
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const updateSection = () => {
+      const sections = ["top", "start", "quickstart", "api", "sdks", "library", "changelog", "community"];
+      const current = sections.reduce((result, id) => {
+        const element = document.getElementById(id);
+        return element && element.getBoundingClientRect().top <= 160 ? id : result;
+      }, "top");
+      setActiveSection(current);
+      const groupIndex = docsGroups.findIndex((group) => group.links.some((link) => link.anchor === current));
+      if (groupIndex >= 0) setExpandedGroup(groupIndex);
+    };
+    updateSection();
+    window.addEventListener("scroll", updateSection, { passive: true });
+    window.addEventListener("resize", updateSection);
+    return () => { window.removeEventListener("scroll", updateSection); window.removeEventListener("resize", updateSection); };
+  }, []);
+
+  useEffect(() => { if (paletteOpen) { setPaletteIndex(0); window.requestAnimationFrame(() => paletteInputRef.current?.focus()); } else { setPaletteSearch(""); } }, [paletteOpen]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("dockyard-theme");
@@ -126,7 +150,7 @@ function Dockyard() {
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); setPaletteOpen(false); }
+      if (event.key === "Escape") { setSelected(null); setMenuOpen(false); setPaletteOpen(false); if (paletteOpen) paletteTriggerRef.current?.focus(); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPaletteOpen((value) => !value); }
       if (event.key === "/" && !event.metaKey && !event.ctrlKey && !["INPUT", "TEXTAREA"].includes(target.tagName) && !target.isContentEditable) {
         event.preventDefault();
@@ -136,7 +160,7 @@ function Dockyard() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [paletteOpen]);
 
   const filtered = resources.filter((item) => (filter === "All" || item.type === filter) && `${item.title} ${item.type} ${item.description}`.toLowerCase().includes(search.toLowerCase().trim()));
 
@@ -175,14 +199,16 @@ function Dockyard() {
   const navigateTo = (anchor: string) => {
     setPaletteOpen(false);
     setMenuOpen(false);
+    setActiveSection(anchor);
+    paletteTriggerRef.current?.focus();
     document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const currentEndpoint = endpoints[activeEndpoint];
+  const currentEndpoint = endpoints[activeEndpoint] ?? endpoints[0];
   const requestPath = currentEndpoint.path.replace("{id}", encodeURIComponent(projectId || "prj_01"));
   const requestPreview = currentEndpoint.method === "POST"
-    ? `curl -X POST https://api.dockyard.dev${requestPath} \\\n+  -H 'Authorization: Bearer $DOCKYARD_API_KEY' \\\n+  -H 'Content-Type: application/json' \\\n+  -d '${JSON.stringify({ name: projectName, region })}'`
-    : `curl -X ${currentEndpoint.method} https://api.dockyard.dev${requestPath} \\\n+  -H 'Authorization: Bearer $DOCKYARD_API_KEY'`;
+    ? `curl -X POST https://api.dockyard.dev${requestPath} \\\n  -H 'Authorization: Bearer $DOCKYARD_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify({ name: projectName, region })}'`
+    : `curl -X ${currentEndpoint.method} https://api.dockyard.dev${requestPath} \\\n  -H 'Authorization: Bearer $DOCKYARD_API_KEY'`;
   const responsePreview = JSON.stringify(activeEndpoint === 1
     ? { ...currentEndpoint.response, name: projectName, region }
     : currentEndpoint.response, null, 2);
@@ -192,26 +218,26 @@ function Dockyard() {
     <div className={`site-shell portal-shell min-h-screen bg-background text-foreground ${sidebarOpen ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`docs-sidebar ${menuOpen ? "mobile-open" : ""}`} aria-label="Documentation navigation">
         <div className="sidebar-brand"><a href="#top" className="brand flex items-center gap-2.5" aria-label="Dockyard home" onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span className="sidebar-text">dockyard<span className="text-primary">.</span></span></a></div>
-        <nav className="docs-nav">{docsGroups.map((group) => <div className="docs-nav-group" key={group.label}><div className="docs-nav-label sidebar-text">{group.label}</div>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} onClick={() => setMenuOpen(false)}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div>)}</nav>
+         <nav className="docs-nav">{docsGroups.map((group, index) => <div className="docs-nav-group" key={group.label}><Button variant="ghost" className="docs-nav-label sidebar-text" aria-expanded={expandedGroup === index} aria-controls={`docs-group-${index}`} onClick={() => setExpandedGroup(expandedGroup === index ? -1 : index)}>{group.label}<ChevronDown size={14} className={expandedGroup === index ? "group-chevron is-open" : "group-chevron"} /></Button><div id={`docs-group-${index}`} hidden={expandedGroup !== index || (!sidebarOpen && !menuOpen)}>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} aria-current={activeSection === link.anchor || (link.anchor === "quickstart" && activeSection === "start") ? "location" : undefined} onClick={() => { setMenuOpen(false); setActiveSection(link.anchor); }}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div></div>)}</nav>
         <div className="sidebar-bottom"><span className="sidebar-text">DOCKYARD / DOCS<br />v2.4 — STABLE</span><span className="status-dot is-online" /></div>
       </aside>
       {menuOpen && <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} />}
       <div className="portal-main">
       <div className="utility-bar">
         <div className="page-container flex h-full items-center justify-between gap-4">
-          <span className="font-mono text-[11px] uppercase tracking-widest">ROOT / <span className="text-primary">DOCKYARD</span> / OVERVIEW</span>
+          <span className="font-mono text-[11px] uppercase tracking-widest">ROOT / <span className="text-primary">DOCKYARD</span> / {activeSection.toUpperCase()}</span>
           <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider"><span className={`status-dot ${online ? "is-online" : "is-offline"}`} aria-hidden="true" />{online ? "Connection online" : "You're offline"}<span className="ml-2 opacity-50">↗</span></span>
         </div>
       </div>
 
       <header className="site-header">
         <div className="page-container flex h-[76px] items-center justify-between gap-4">
-           <div className="flex items-center gap-3"><Button variant="ghost" size="icon" className="header-icon hidden lg:inline-flex" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? "Collapse documentation navigation" : "Expand documentation navigation"} title={sidebarOpen ? "Collapse navigation" : "Expand navigation"}>{sidebarOpen ? <ChevronsLeft /> : <ChevronsRight />}</Button><span className="header-location">DOCS <span>/</span> OVERVIEW</span></div>
+            <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" size="icon" className="header-icon hidden lg:inline-flex shrink-0" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? "Collapse documentation navigation" : "Expand documentation navigation"} title={sidebarOpen ? "Collapse navigation" : "Expand navigation"}>{sidebarOpen ? <ChevronsLeft /> : <ChevronsRight />}</Button><span className="header-location truncate">DOCS <span>/</span> {activeSection.toUpperCase()}</span></div>
           <nav className="hidden items-center gap-9 md:flex" aria-label="Main navigation">
              <a href="#quickstart">Quickstart</a><a href="#api">API</a><a href="#sdks">SDKs</a><a href="#library">Library</a>
           </nav>
           <div className="flex items-center gap-2">
-             <Button variant="outline" className="command-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Search pages and sections"><Search size={15} /><span>Jump to...</span><kbd>⌘ K</kbd></Button>
+             <Button ref={paletteTriggerRef} variant="outline" className="command-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette" title="Search pages and sections"><Search size={15} /><span>Jump to...</span><kbd>⌘ K</kbd></Button>
             <Button variant="ghost" size="icon" className="header-icon" onClick={() => setDark(!dark)} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} title={dark ? "Light mode" : "Dark mode"}>{dark ? <Sun /> : <Moon />}</Button>
             <Button variant="ghost" size="icon" className="header-icon md:hidden" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</Button>
           </div>
@@ -267,7 +293,7 @@ function Dockyard() {
       <footer className="site-footer"><div className="page-container footer-inner"><a href="#top" className="brand flex items-center gap-2" aria-label="Dockyard home"><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span>dockyard<span className="text-primary">.</span></span></a><span className="font-mono text-xs">BUILT FOR THE BUILDERS. © 2026 DOCKYARD.</span><div className="footer-links"><a href="#library">Library</a><a href="#changelog">Updates</a><a href="mailto:help@dockyard.dev">Support</a></div></div></footer>
       </div>
 
-      {paletteOpen && <div className="palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaletteOpen(false); }}><div className="palette-dialog" role="dialog" aria-modal="true" aria-label="Jump to section"><div className="palette-input"><Command size={18} /><input autoFocus value={paletteSearch} onChange={(event) => setPaletteSearch(event.target.value)} placeholder="Search sections..." aria-label="Search sections" /><kbd>ESC</kbd></div><div className="palette-results">{paletteItems.length ? paletteItems.map((item) => <Button key={item.anchor} variant="ghost" onClick={() => { navigateTo(item.anchor); setPaletteSearch(""); }}><span>{item.label}</span><ArrowUpRight size={16} /></Button>) : <p>No sections found.</p>}</div></div></div>}
+      {paletteOpen && <div className="palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaletteOpen(false); }}><div className="palette-dialog" role="dialog" aria-modal="true" aria-label="Jump to section"><div className="palette-input"><Command size={18} /><input ref={paletteInputRef} value={paletteSearch} onChange={(event) => { setPaletteSearch(event.target.value); setPaletteIndex(0); }} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); setPaletteIndex((index) => Math.min(index + 1, paletteItems.length - 1)); } else if (event.key === "ArrowUp") { event.preventDefault(); setPaletteIndex((index) => Math.max(index - 1, 0)); } else if (event.key === "Enter" && paletteItems[paletteIndex]) { event.preventDefault(); navigateTo(paletteItems[paletteIndex].anchor); } }} placeholder="Search sections..." aria-label="Search sections" aria-controls="palette-results" aria-activedescendant={paletteItems[paletteIndex] ? `palette-${paletteItems[paletteIndex].anchor}` : undefined} /><kbd>ESC</kbd></div><div className="palette-results" id="palette-results">{paletteItems.length ? paletteItems.map((item, index) => <Button key={item.anchor} id={`palette-${item.anchor}`} variant="ghost" className={index === paletteIndex ? "is-active" : ""} onMouseEnter={() => setPaletteIndex(index)} onClick={() => navigateTo(item.anchor)}><span>{item.label}</span><ArrowUpRight size={16} /></Button>) : <p>No sections found.</p>}</div></div></div>}
 
       {selected && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelected(null); }}><div className="resource-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div className="dialog-top"><span className="resource-type">{selected.type}</span><Button variant="ghost" size="icon" onClick={() => setSelected(null)} aria-label="Close resource"><X size={20} /></Button></div><h2 id="dialog-title">{selected.title}</h2><p>{selected.description}</p><ol>{selected.details.map((detail) => <li key={detail}>{detail}</li>)}</ol><Button className="primary-action" onClick={() => setSelected(null)}>Back to library <ArrowRight /></Button></div></div>}
     </div>
