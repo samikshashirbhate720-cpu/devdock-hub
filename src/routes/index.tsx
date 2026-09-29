@@ -73,7 +73,7 @@ const endpoints = [
   { method: "POST", path: "/v1/projects", label: "Create project", description: "Create a project in your chosen region.", response: { id: "prj_02", name: "My next big thing", region: "us-east-1", status: "ready" } },
   { method: "GET", path: "/v1/projects/{id}", label: "Retrieve project", description: "Get one project by its ID.", response: { id: "prj_01", name: "My next big thing", region: "us-east-1", status: "ready" } },
   { method: "DELETE", path: "/v1/projects/{id}", label: "Archive project", description: "Archive a project you no longer need.", response: { id: "prj_01", archived: true } },
-];
+] as const;
 
 const installCommands = {
   JavaScript: "npm install @dockyard/sdk",
@@ -218,7 +218,7 @@ function Dockyard() {
     <div className={`site-shell portal-shell min-h-screen bg-background text-foreground ${sidebarOpen ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       <aside className={`docs-sidebar ${menuOpen ? "mobile-open" : ""}`} aria-label="Documentation navigation">
         <div className="sidebar-brand"><a href="#top" className="brand flex items-center gap-2.5" aria-label="Dockyard home" onClick={() => setMenuOpen(false)}><span className="brand-mark" aria-hidden="true"><span>▰</span></span><span className="sidebar-text">dockyard<span className="text-primary">.</span></span></a></div>
-         <nav className="docs-nav">{docsGroups.map((group, index) => <div className="docs-nav-group" key={group.label}><Button variant="ghost" className="docs-nav-label sidebar-text" aria-expanded={expandedGroup === index} aria-controls={`docs-group-${index}`} onClick={() => setExpandedGroup(expandedGroup === index ? -1 : index)}>{group.label}<ChevronDown size={14} className={expandedGroup === index ? "group-chevron is-open" : "group-chevron"} /></Button><div id={`docs-group-${index}`} hidden={expandedGroup !== index || (!sidebarOpen && !menuOpen)}>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} aria-current={activeSection === link.anchor || (link.anchor === "quickstart" && activeSection === "start") ? "location" : undefined} onClick={() => { setMenuOpen(false); setActiveSection(link.anchor); }}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div></div>)}</nav>
+         <nav className="docs-nav">{docsGroups.map((group, index) => <div className="docs-nav-group" key={group.label}><Button variant="ghost" className="docs-nav-label sidebar-text" aria-expanded={expandedGroup === index} aria-controls={`docs-group-${index}`} onClick={() => setExpandedGroup(expandedGroup === index ? -1 : index)}>{group.label}<ChevronDown size={14} className={expandedGroup === index ? "group-chevron is-open" : "group-chevron"} /></Button><div id={`docs-group-${index}`} hidden={expandedGroup !== index}>{group.links.map((link) => <a key={link.anchor} href={`#${link.anchor}`} title={link.label} aria-current={activeSection === link.anchor || (link.anchor === "quickstart" && activeSection === "start") ? "location" : undefined} onClick={() => { setMenuOpen(false); setActiveSection(link.anchor); }}><span className="docs-nav-marker" aria-hidden="true" /><span className="sidebar-text">{link.label}</span></a>)}</div></div>)}</nav>
         <div className="sidebar-bottom"><span className="sidebar-text">DOCKYARD / DOCS<br />v2.4 — STABLE</span><span className="status-dot is-online" /></div>
       </aside>
       {menuOpen && <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} />}
