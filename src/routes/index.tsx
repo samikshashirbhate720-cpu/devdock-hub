@@ -119,19 +119,24 @@ function Dockyard() {
 
   const copyCode = async () => {
     try {
+      let copiedSuccessfully = false;
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(codeSamples[language]);
-      } else {
+        try {
+          await navigator.clipboard.writeText(codeSamples[language]);
+          copiedSuccessfully = true;
+        } catch { /* Use the selection fallback when clipboard permission is unavailable. */ }
+      }
+      if (!copiedSuccessfully) {
         const temporary = document.createElement("textarea");
         temporary.value = codeSamples[language];
         temporary.style.position = "fixed";
         temporary.style.opacity = "0";
         document.body.appendChild(temporary);
         temporary.select();
-        const successful = document.execCommand("copy");
+        copiedSuccessfully = document.execCommand("copy");
         temporary.remove();
-        if (!successful) throw new Error("Copy unavailable");
       }
+      if (!copiedSuccessfully) throw new Error("Copy unavailable");
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch { setCopied(false); }
